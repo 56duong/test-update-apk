@@ -1,0 +1,43 @@
+name: Update releases.json
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  update-json:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Get releases from GitHub API
+        run: |
+          curl -s "https://api.github.com/repos/${{ github.repository }}/releases?per_page=100&page=1" \
+          > releases-api.json
+
+      - name: Generate releases.json
+        run: |
+          jq '[.[] | {
+            version: .tag_name,
+            name: .name,
+            body: .body,
+            published_at: .published_at,
+            download_url: .assets[0].browser_download_url
+          }]' releases-api.json > releases.json
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add releases.json
+
+          git diff --cached --quiet && echo "No changes" && exit 0
+
+          git commit -m "Auto update releases.json"
+          git push
