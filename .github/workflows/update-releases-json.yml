@@ -20,13 +20,13 @@ jobs:
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Fetch all releases
+      - name: Fetch ALL releases
         run: |
           page=1
-          echo "[]" > all-releases.json
+          echo "[]" > releases.json
 
           while true; do
-            echo "Fetching page $page..."
+            echo "Fetching page $page"
 
             response=$(curl -s \
               "https://api.github.com/repos/${{ github.repository }}/releases?per_page=100&page=$page")
@@ -34,58 +34,29 @@ jobs:
             count=$(echo "$response" | jq length)
 
             if [ "$count" -eq 0 ]; then
-              echo "No more releases."
+              echo "Done fetching releases"
               break
             fi
 
-            jq -s 'add' all-releases.json <(echo "$response") > temp.json
-            mv temp.json all-releases.json
+            jq -s 'add' releases.json <(echo "$response") > temp.json
+            mv temp.json releases.json
 
             page=$((page + 1))
           done
 
-      - name: Generate releases.json
+      - name: Format JSON
         run: |
-          jq '[
-            .[] |
-            {
-              id: .id,
-              tag_name: .tag_name,
-              name: .name,
-              body: .body,
-              draft: .draft,
-              prerelease: .prerelease,
-              created_at: .created_at,
-              published_at: .published_at,
-              html_url: .html_url,
-              author: {
-                login: .author.login,
-                avatar_url: .author.avatar_url,
-                html_url: .author.html_url
-              },
-              assets: [
-                .assets[] |
-                {
-                  id: .id,
-                  name: .name,
-                  content_type: .content_type,
-                  size: .size,
-                  download_count: .download_count,
-                  browser_download_url: .browser_download_url,
-                  created_at: .created_at
-                }
-              ]
-            }
-          ]' all-releases.json > releases.json
+          jq '.' releases.json > temp.json
+          mv temp.json releases.json
 
-      - name: Commit and push changes
+      - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add releases.json
 
-          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git diff --cached --quiet && echo "No changes" && exit 0
 
           git commit -m "Auto update releases.json"
 
