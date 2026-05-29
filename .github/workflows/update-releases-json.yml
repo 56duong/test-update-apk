@@ -12,32 +12,81 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Get releases from GitHub API
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Fetch all releases
         run: |
-          curl -s "https://api.github.com/repos/${{ github.repository }}/releases?per_page=100&page=1" \
-          > releases-api.json
+          page=1
+          echo "[]" > all-releases.json
+
+          while true; do
+            echo "Fetching page $page..."
+
+            response=$(curl -s \
+              "https://api.github.com/repos/${{ github.repository }}/releases?per_page=100&page=$page")
+
+            count=$(echo "$response" | jq length)
+
+            if [ "$count" -eq 0 ]; then
+              echo "No more releases."
+              break
+            fi
+
+            jq -s 'add' all-releases.json <(echo "$response") > temp.json
+            mv temp.json all-releases.json
+
+            page=$((page + 1))
+          done
 
       - name: Generate releases.json
         run: |
-          jq '[.[] | {
-            version: .tag_name,
-            name: .name,
-            body: .body,
-            published_at: .published_at,
-            download_url: .assets[0].browser_download_url
-          }]' releases-api.json > releases.json
+          jq '[
+            .[] |
+            {
+              id: .id,
+              tag_name: .tag_name,
+              name: .name,
+              body: .body,
+              draft: .draft,
+              prerelease: .prerelease,
+              created_at: .created_at,
+              published_at: .published_at,
+              html_url: .html_url,
+              author: {
+                login: .author.login,
+                avatar_url: .author.avatar_url,
+                html_url: .author.html_url
+              },
+              assets: [
+                .assets[] |
+                {
+                  id: .id,
+                  name: .name,
+                  content_type: .content_type,
+                  size: .size,
+                  download_count: .download_count,
+                  browser_download_url: .browser_download_url,
+                  created_at: .created_at
+                }
+              ]
+            }
+          ]' all-releases.json > releases.json
 
-      - name: Commit and push
+      - name: Commit and push changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add releases.json
 
-          git diff --cached --quiet && echo "No changes" && exit 0
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
 
           git commit -m "Auto update releases.json"
-          git push
+
+          git push origin HEAD:main
