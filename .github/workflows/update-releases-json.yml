@@ -7,7 +7,6 @@ on:
       - edited
       - deleted
       - prereleased
-      - released
       - unpublished
 
 permissions:
