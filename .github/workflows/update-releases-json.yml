@@ -65,16 +65,23 @@ jobs:
 
           git checkout main
 
-          # Pull latest changes FIRST
+          # Save local changes temporarily
+          git stash push --include-untracked
+
+          # Pull latest remote changes
           git pull --rebase origin main
 
-          # Now add file
+          # Restore local changes
+          git stash pop || true
+
+          # Add file
           git add releases.json
 
           # Skip if nothing changed
           git diff --cached --quiet && echo "No changes" && exit 0
 
-          # Commit + push
+          # Commit
           git commit -m "Auto update releases.json"
 
+          # Push
           git push origin main
