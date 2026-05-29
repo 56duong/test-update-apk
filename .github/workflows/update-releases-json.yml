@@ -2,8 +2,7 @@ name: Update releases.json
 
 on:
   release:
-    types:
-      - released
+    types: [published]
 
 permissions:
   contents: write
