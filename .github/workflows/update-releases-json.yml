@@ -8,6 +8,10 @@ on:
 
 permissions:
   contents: write
+  
+concurrency:
+  group: update-releases-json
+  cancel-in-progress: true
 
 jobs:
   update-json:
