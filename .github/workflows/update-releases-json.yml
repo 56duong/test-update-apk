@@ -58,17 +58,23 @@ jobs:
           jq '.' releases.json > temp.json
           mv temp.json releases.json
 
-      - name: Commit and push
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            - name: Commit and push
+              run: |
+                git config user.name "github-actions[bot]"
+                git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
       
-          git add releases.json
+                git checkout main
       
-          git diff --cached --quiet && echo "No changes" && exit 0
+                # Pull latest changes FIRST
+                git pull --rebase origin main
       
-          git pull --rebase origin main
+                # Now add file
+                git add releases.json
       
-          git commit -m "Auto update releases.json"
+                # Skip if nothing changed
+                git diff --cached --quiet && echo "No changes" && exit 0
       
-          git push origin main
+                # Commit + push
+                git commit -m "Auto update releases.json"
+      
+                git push origin main
